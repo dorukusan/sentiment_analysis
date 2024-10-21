@@ -27,7 +27,7 @@ def lemmatize_text(cleaned_text):
     return " ".join([token.lemma_ for token in doc])
 
 
-# Предварительная подготовка текста
+# Предварительная обработка текста
 def process_text(text):
     tokens = tokenize(text)
     # print(tokens)

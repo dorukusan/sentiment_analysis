@@ -27,17 +27,26 @@ def lemmatize_text(cleaned_text):
     return " ".join([token.lemma_ for token in doc])
 
 
-# Предварительная обработка текста
-def process_text(text):
+# Предварительная обработка текста и заполнение словаря
+def process_text(text, dictionary):
     tokens = tokenize(text)
     # print(tokens)
     tokenize_text = ', '.join(tokens)
     cleaned_text = clean_text(tokenize_text)
     # print(cleaned_text)
     lemmatized_text = lemmatize_text(cleaned_text)
+    for token in lemmatized_text.split():
+        if token not in dictionary:
+            dictionary.append(token)
     # print(lemmatized_text)
+
     return lemmatized_text
 
 
-original_text = "Синее небо над головой. Кошка прыгнула на стол."
-print(process_text(original_text))
+dictionary = []
+
+original_text1 = "Синее небо над головой. Кошка прыгнула на стол."
+original_text2 = "Синее небо над головой. Кошка на стол прыгнула."
+print(process_text(original_text1, dictionary))
+print(process_text(original_text2, dictionary))
+print(*dictionary)

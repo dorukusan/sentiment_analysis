@@ -43,10 +43,22 @@ def process_text(text, dictionary):
     return lemmatized_text
 
 
+def vectorize_text(text, dictionary):
+    vector = [0] * len(dictionary)
+    for i in range(len(vector)):
+        for token in text.split():
+            if token == dictionary[i]:
+                vector[i] += 1
+    return vector
+
+
 dictionary = []
 
 original_text1 = "Синее небо над головой. Кошка прыгнула на стол."
-original_text2 = "Синее небо над головой. Кошка на стол прыгнула."
-print(process_text(original_text1, dictionary))
-print(process_text(original_text2, dictionary))
+original_text2 = "Синее небо над головой. Кошка прыгнула."
+process_text(original_text1, dictionary)
+processed_text = process_text(original_text2, dictionary)
+print(processed_text)
+# print(process_text(original_text2, dictionary))
 print(*dictionary)
+print(*vectorize_text(processed_text, dictionary))

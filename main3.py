@@ -29,7 +29,7 @@ def lemmatize_text(cleaned_text):
 
 # Предварительная подготовка текста
 def process_text(text):
-    tokens = tokenize(original_text)
+    tokens = tokenize(text)
     # print(tokens)
     tokenize_text = ', '.join(tokens)
     cleaned_text = clean_text(tokenize_text)

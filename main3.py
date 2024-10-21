@@ -1,5 +1,6 @@
 from nltk.corpus import stopwords
 from collections import Counter
+from sklearn.model_selection import train_test_split
 from spellchecker import SpellChecker
 import re
 import spacy
@@ -22,7 +23,23 @@ pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', None)
 
 # Смотрим на данные, выводим 10 первых строк
-print(data[:10])
+# print(data[:10])
+data = data[:10]
+
+
+# Разделяем данные на обучающую и тестовую выборки
+(train_set, test_set, train_labels, test_labels) = train_test_split(
+    data[['text']],
+    data['rating'],
+    test_size=0.3,
+    # random_state=42
+)
+
+# print(train_set)
+# print(test_set)
+# print(train_labels)
+# print(test_labels)
+
 
 nlp = spacy.load("ru_core_news_sm")
 spell = SpellChecker(language='ru')
@@ -60,7 +77,7 @@ def lemmatize_text(cleaned_text):
 
 
 # Предварительная обработка текста и заполнение словаря
-def process_text(text, dictionary):
+def preprocess_text(text, dictionary):
     tokens = tokenize(text)
     tokenize_text = ', '.join(tokens)
     # print(tokenize_text)
@@ -75,8 +92,8 @@ def process_text(text, dictionary):
     return lemmatized_text
 
 
-# Вектор слов
-def vectorize_text(text, dictionary):
+# Мешок слов
+def bag_of_words(text, dictionary):
     vector = [0] * len(dictionary)
     token_counts = Counter(text.split())
     for i, word in enumerate(dictionary):
@@ -86,11 +103,12 @@ def vectorize_text(text, dictionary):
 
 dictionary = []
 
-original_text1 = "Синее небо над головоц. Кошка прыгнула на стол."
-original_text2 = "Синее небо над головой. Кошка прыгнула."
-# process_text(original_text1, dictionary)
-processed_text = process_text(original_text1, dictionary)
-print(processed_text)
+# original_text1 = "Синее небо над головоц. Кошка прыгнула на стол."
+# original_text2 = "Синее небо над головой. Кошка прыгнула."
+
+preprocess_text(train_set, dictionary)
+preprocessed_text = preprocess_text(test_set, dictionary)
+print(preprocessed_text)
 # print(process_text(original_text2, dictionary))
 print(*dictionary)
-print(*vectorize_text(processed_text, dictionary))
+print(*bag_of_words(preprocessed_text, dictionary))

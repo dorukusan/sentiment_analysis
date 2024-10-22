@@ -2,10 +2,11 @@ from nltk.corpus import stopwords
 from collections import Counter
 from sklearn.model_selection import train_test_split
 from console_progressbar import ProgressBar
+from sklearn.svm import SVC
+from sklearn import metrics
 import re
 import spacy
 import pandas as pd
-import numpy as np
 
 
 nlp = spacy.load("ru_core_news_sm")
@@ -75,6 +76,9 @@ data.reset_index(drop=True, inplace=True)
 # Добавление новых столбцов
 data['preprocessed_text'] = None
 data['vector'] = None
+data['sentiment'] = data['rating']
+data['sentiment'] = data['sentiment'].replace({1: -1, 2: -1, 3: 0, 4: 1, 5: 1})
+
 
 # Снимаем ограничения вывода таблицы
 pd.set_option('display.max_rows', None)
@@ -84,7 +88,7 @@ pd.set_option('display.width', None)
 
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
-data = data[:10]
+data = data[:250]
 
 
 dictionary = []
@@ -109,8 +113,8 @@ vectors = []
 
 # Векторизация текста
 for i in range(len(data)):
-    vectors.append(bag_of_words(data.loc[i, 'text'], dictionary))
-    data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'text'], dictionary))
+    vectors.append(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
+    data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
     pb.print_progress_bar(i)
 
 print(data[:10])
@@ -119,25 +123,31 @@ print(data[:10])
 # Разделяем данные на обучающую и тестовую выборки
 (train_set, test_set, train_labels, test_labels) = train_test_split(
     vectors,
-    data['rating'],
+    data['sentiment'],
     test_size=0.3,
-    random_state=42
 )
 
-print(train_set[:2])
-print(train_labels[:2])
 
-# dcti = []
-# original_text1 = "Синее небо над головой. Кошка прыгнула на стол."
-# original_text2 = "Синее небо над головой. Кошка прыгнула."
-# preprocessed_text = preprocess_text(original_text1, dcti)
-# preprocessed_text = preprocess_text(original_text2, dcti)
-# print(preprocessed_text)
-# print(*bag_of_words(preprocessed_text, dcti))
-# preprocessed_text = preprocess_text(original_text1, dcti)
-# print(preprocessed_text)
-# print(*bag_of_words(preprocessed_text, dcti))
-# # print(process_text(original_text2, dictionary))
-# print(data)
-print(*dictionary)
-print(f"Количество слов в словаре: {len(dictionary)}")
+print(test_set)
+print(test_labels)
+
+
+# Обучение модели SVM
+svm = SVC(kernel='linear')
+svm.fit(train_set, train_labels)
+
+# Предсказание на тестовых данных (SVM)
+model_predictions_svm = svm.predict(test_set)
+
+# Оценка точности для SVM
+accuracy_svm = metrics.accuracy_score(test_labels, model_predictions_svm)
+
+print("\nОценка точности для SVM:", accuracy_svm)
+print(metrics.classification_report(test_labels, model_predictions_svm))
+
+print(*test_labels)
+print(*model_predictions_svm)
+
+
+# print(*dictionary)
+# print(f"Количество слов в словаре: {len(dictionary)}")

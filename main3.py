@@ -71,6 +71,9 @@ data = data[data['rating'].isin(['1', '2', '3', '4', '5'])]
 data['rating'] = data['rating'].astype(int)
 data.reset_index(drop=True, inplace=True)
 
+# Добавление новых столбцов
+data['preprocessed_text'] = None
+data['vector'] = None
 
 # Снимаем ограничения вывода таблицы
 pd.set_option('display.max_rows', None)
@@ -86,18 +89,31 @@ data = data[:1000]
 dictionary = []
 
 
-# Прогресс-бар для удобства
+# Прогресс-бар для наглядности прогресса обработки текста
 pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length=50)
 print("Прогресс обработки текста")
 
+# Предварительная обработка текста
 for i in range(len(data)):
-    data.loc[i, 'text'] = preprocess_text(data.loc[i, 'text'], dictionary)
+    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dictionary)
     pb.print_progress_bar(i)
+
+
+# Прогресс-бар для наглядности прогресса векторизации текста
+pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length=50)
+print("\nПрогресс векторизации текста")
+
+# Векторизация текста
+for i in range(len(data)):
+    data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'text'], dictionary))
+    pb.print_progress_bar(i)
+
+print(data[:10])
 
 
 # Разделяем данные на обучающую и тестовую выборки
 (train_set, test_set, train_labels, test_labels) = train_test_split(
-    data['text'],
+    data['vector'],
     data['rating'],
     test_size=0.3,
     # random_state=42

@@ -78,6 +78,8 @@ data['preprocessed_text'] = None
 data['vector'] = None
 data['sentiment'] = data['rating']
 data['sentiment'] = data['sentiment'].replace({1: -1, 2: -1, 3: 0, 4: 1, 5: 1})
+# counts = data['sentiment'].value_counts()
+# print(counts)
 
 
 # Снимаем ограничения вывода таблицы
@@ -88,7 +90,17 @@ pd.set_option('display.width', None)
 
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
-data = data[:250]
+# data = data[:1000]
+n = 600
+data = pd.concat([
+    data[data['sentiment'] == -1].sample(n=n, random_state=1),
+    data[data['sentiment'] == 0].sample(n=n, random_state=1),
+    data[data['sentiment'] == 1].sample(n=n, random_state=1)])
+
+# counts = data['sentiment'].value_counts()
+# print(counts)
+# print(data)
+data.reset_index(drop=True, inplace=True)
 
 
 dictionary = []
@@ -117,7 +129,7 @@ for i in range(len(data)):
     data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
     pb.print_progress_bar(i)
 
-print(data[:10])
+# print(data[:10])
 
 
 # Разделяем данные на обучающую и тестовую выборки
@@ -125,11 +137,12 @@ print(data[:10])
     vectors,
     data['sentiment'],
     test_size=0.3,
+    random_state=42
 )
 
 
-print(test_set)
-print(test_labels)
+# print(test_set)
+# print(test_labels)
 
 
 # Обучение модели SVM

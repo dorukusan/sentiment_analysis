@@ -5,6 +5,7 @@ from console_progressbar import ProgressBar
 import re
 import spacy
 import pandas as pd
+import numpy as np
 
 
 nlp = spacy.load("ru_core_news_sm")
@@ -83,7 +84,7 @@ pd.set_option('display.width', None)
 
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
-data = data[:1000]
+data = data[:10]
 
 
 dictionary = []
@@ -103,8 +104,12 @@ for i in range(len(data)):
 pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length=50)
 print("\nПрогресс векторизации текста")
 
+
+vectors = []
+
 # Векторизация текста
 for i in range(len(data)):
+    vectors.append(bag_of_words(data.loc[i, 'text'], dictionary))
     data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'text'], dictionary))
     pb.print_progress_bar(i)
 
@@ -113,18 +118,26 @@ print(data[:10])
 
 # Разделяем данные на обучающую и тестовую выборки
 (train_set, test_set, train_labels, test_labels) = train_test_split(
-    data['vector'],
+    vectors,
     data['rating'],
     test_size=0.3,
-    # random_state=42
+    random_state=42
 )
 
-# original_text1 = "Синее небо над головоц. Кошка прыгнула на стол."
+print(train_set[:2])
+print(train_labels[:2])
+
+# dcti = []
+# original_text1 = "Синее небо над головой. Кошка прыгнула на стол."
 # original_text2 = "Синее небо над головой. Кошка прыгнула."
-# preprocessed_text = preprocess_text(test_set, dictionary)
+# preprocessed_text = preprocess_text(original_text1, dcti)
+# preprocessed_text = preprocess_text(original_text2, dcti)
 # print(preprocessed_text)
+# print(*bag_of_words(preprocessed_text, dcti))
+# preprocessed_text = preprocess_text(original_text1, dcti)
+# print(preprocessed_text)
+# print(*bag_of_words(preprocessed_text, dcti))
 # # print(process_text(original_text2, dictionary))
 # print(data)
-# print(*dictionary)
+print(*dictionary)
 print(f"Количество слов в словаре: {len(dictionary)}")
-# print(*bag_of_words(preprocessed_text, dictionary))

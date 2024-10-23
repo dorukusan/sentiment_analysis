@@ -8,6 +8,7 @@ from sklearn import metrics
 import re
 import spacy
 import pandas as pd
+import numpy as np
 
 
 nlp = spacy.load("ru_core_news_sm")

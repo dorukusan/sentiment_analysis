@@ -71,6 +71,7 @@ def bag_of_words(text, dct):
     return vector
 
 
+# Word2Vec
 def word2vec(data, vectors_w2v):
     sentences = [sentence.split() for sentence in data['preprocessed_text']]
     w2v = Word2Vec(sentences, vector_size=100, window=5, min_count=5, workers=4)
@@ -172,6 +173,7 @@ while True:
         print("Выберите существующий датасет!")
 
 
+# Предобработка текста
 def general_preprocessing(data, dct, language):
     # Прогресс-бар для наглядности прогресса обработки текста
     pb = ProgressBar(total=len(data) - 1, prefix='Progress', suffix='Complete', length=50)
@@ -183,6 +185,7 @@ def general_preprocessing(data, dct, language):
         pb.print_progress_bar(i)
 
 
+# Векторизация текста
 def vectorize(data, dct):
     # Прогресс-бар для наглядности прогресса векторизации текста
     pb = ProgressBar(total=len(data) - 1, prefix='Progress', suffix='Complete', length=50)
@@ -293,6 +296,7 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
+# Нейронная сеть
 def model_nn(train_x, test_x, train_y, test_y):
     scaler = StandardScaler()
     X_train = scaler.fit_transform(train_x)

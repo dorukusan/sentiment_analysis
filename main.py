@@ -178,7 +178,7 @@ def general_preprocessing(data, dct, language):
 
     # Предварительная обработка текста
     for i in range(len(data)):
-        data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dct, language)
+        data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dct, language)  # упал
         pb.print_progress_bar(i)
 
 

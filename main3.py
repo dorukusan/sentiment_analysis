@@ -93,7 +93,7 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 10000
+n = 500
 data = pd.concat([
     data[data['sentiment'] == -1].sample(n=n, random_state=1),
     data[data['sentiment'] == 0].sample(n=n, random_state=1),

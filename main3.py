@@ -94,7 +94,7 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 1000
+n = 1500
 data = pd.concat([
     data[data['sentiment'] == -1].sample(n=n, random_state=1),
     data[data['sentiment'] == 0].sample(n=n, random_state=1),
@@ -199,6 +199,6 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
-# model_svm(train_set, test_set, train_labels, test_labels)
-# model_kmeans(train_set, test_set, test_labels)
+model_svm(train_set, test_set, train_labels, test_labels)
+model_kmeans(train_set, test_set, test_labels)
 model_gnb(train_set, test_set, train_labels, test_labels)

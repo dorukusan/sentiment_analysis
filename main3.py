@@ -13,7 +13,8 @@ import pandas as pd
 import numpy as np
 
 
-nlp = spacy.load("ru_core_news_sm")
+# nlp = spacy.load("ru_core_news_sm")
+nlp = spacy.load("en_core_web_sm")
 
 
 # Токенизация текста
@@ -28,7 +29,8 @@ def clean_text(text):
     text = text.replace("\\n", " ")
     text = re.sub(r'\d+', '', text)
     text = re.sub(r'[^\w\s]', '', text)
-    stop_words = set(stopwords.words('russian'))
+    # stop_words = set(stopwords.words('russian'))
+    stop_words = set(stopwords.words('english'))
     filtered_words = [word for word in text.split() if word not in stop_words]
     return " ".join(filtered_words)
 
@@ -73,30 +75,34 @@ def model_Word2Vec(data, vectors_w2v):
         vectors_w2v.append(words_vecs.mean(axis=0))
 
 
-# Загрузка TSKV файла с данными
-data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
+# # Загрузка TSKV файла с данными
+# data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
+data = pd.read_csv('sentiment_analysis.csv')
+print(data[:10])
 
 # Установка имен столбцов
-data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
+# data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
 
 # Фильтр только столбцов с текстом отзыва и оценкой
-data = data[['text', 'rating']]
+# data = data[['text', 'rating']]
+data = data[['text', 'sentiment']]
 
 # Срез лишнего
-data['text'] = data['text'].str.slice(5)
-data['rating'] = data['rating'].str.slice(7, -1)
+# data['text'] = data['text'].str.slice(5)
+# data['rating'] = data['rating'].str.slice(7, -1)
+
 # data = data[data['rating'].isin(['1', '2', '3', '4', '5'])]
-data = data[data['rating'].isin(['1', '3', '5'])]
-data['rating'] = data['rating'].astype(int)
+# data = data[data['rating'].isin(['1', '3', '5'])]
+# data['rating'] = data['rating'].astype(int)
 data.reset_index(drop=True, inplace=True)
 
 
 # Добавление новых столбцов
 data['preprocessed_text'] = None
 data['vector'] = None
-data['sentiment'] = data['rating']
+# data['sentiment'] = data['rating']
 # data['sentiment'] = data['sentiment'].replace({1: -1, 2: 0, 3: 0, 4: 0, 5: 1})
-data['sentiment'] = data['sentiment'].replace({1: -1, 3: 0, 5: 1})
+data['sentiment'] = data['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
 counts = data['sentiment'].value_counts()
 print(counts)
 
@@ -110,11 +116,11 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 500
-data = pd.concat([
-    data[data['sentiment'] == -1].sample(n=n, random_state=1),
-    data[data['sentiment'] == 0].sample(n=n, random_state=1),
-    data[data['sentiment'] == 1].sample(n=n, random_state=1)])
+# n = 1000
+# data = pd.concat([
+#     data[data['sentiment'] == -1].sample(n=n, random_state=1),
+#     data[data['sentiment'] == 0].sample(n=n, random_state=1),
+#     data[data['sentiment'] == 1].sample(n=n, random_state=1)])
 
 # counts = data['sentiment'].value_counts()
 # print(counts)

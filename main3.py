@@ -79,22 +79,24 @@ def model_Word2Vec(data, vectors_w2v):
 
 
 # Предобработка датасета
-def prepocessing_data(data, lang):
-    data['preprocessed_text'] = None
-    data['vector'] = None
-    if lang == "rus":
-        data = data[['text', 'rating']]  # Фильтр только столбцов с текстом отзыва и оценкой
-        data['text'] = data['text'].str.slice(5)  # Срез лишнего
-        data['rating'] = data['rating'].str.slice(7, -1)
-        data = data[data['rating'].isin(['1', '3', '5'])]
-        data['sentiment'] = data['rating']
-        data['sentiment'] = data['sentiment'].replace({1: -1, 3: 0, 5: 1})
+def prepocessing_data(dataset, language):
+    dataset['preprocessed_text'] = None
+    dataset['vector'] = None
+    if language == "rus":
+        dataset = dataset[['text', 'rating']]  # Фильтр только столбцов с текстом отзыва и оценкой
+        dataset['text'] = dataset['text'].str.slice(5)  # Срез лишнего
+        dataset['rating'] = dataset['rating'].str.slice(7, -1)
+        dataset = dataset[dataset['rating'].isin(['1', '3', '5'])]
+        # data['sentiment'] = data['rating']
+        dataset['sentiment'] = dataset['rating'].replace({'1': -1, '3': 0, '5': 1})
     else:
-        data = data[['text', 'sentiment']]
-        data['sentiment'] = data['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
-    data.reset_index(drop=True, inplace=True)
-    counts = data['sentiment'].value_counts()
+        dataset = dataset[['text', 'sentiment']]
+        dataset['sentiment'] = dataset['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
+    dataset.reset_index(drop=True, inplace=True)
+    counts = dataset['sentiment'].value_counts()
     print(counts)
+    print(dataset[:10])
+    return dataset
 
 
 # Консольное меню
@@ -106,11 +108,12 @@ print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленьк
 while True:
     menu = int(input("\nВыберите датасет: "))
     n = 1000
+    lang = "eng"
     if menu == 1:
         data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
         lang = "rus"
         data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']  # Установка имен столбцов
-        prepocessing_data(data, lang)
+        data = prepocessing_data(data, lang)
 
         data = pd.concat([
             data[data['sentiment'] == -1].sample(n=n, random_state=1),
@@ -120,17 +123,14 @@ while True:
 
     elif menu == 2:
         data = pd.read_csv('sentiment_analysis.csv')
-        lang = "eng"
         prepocessing_data(data, lang)
 
     elif menu == 3:
         data = pd.read_csv('Tweets.csv')
-        lang = "eng"
         prepocessing_data(data, lang)
 
     elif menu == 4:
         data = pd.read_csv('IMDB-Dataset.csv')
-        lang = "eng"
         prepocessing_data(data, lang)
 
         data = pd.concat([

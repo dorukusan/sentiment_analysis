@@ -1,5 +1,6 @@
 from nltk.corpus import stopwords
 from collections import Counter
+from gensim.models import Word2Vec
 from sklearn.model_selection import train_test_split
 from console_progressbar import ProgressBar
 from sklearn.svm import SVC
@@ -39,14 +40,14 @@ def lemmatize_text(cleaned_text):
 
 
 # Предварительная обработка текста и заполнение словаря
-def preprocess_text(text, dictionary):
+def preprocess_text(text):
     tokens = tokenize(text)
     tokenize_text = ', '.join(tokens)
     cleaned_text = clean_text(tokenize_text)
     lemmatized_text = lemmatize_text(cleaned_text)
-    for token in lemmatized_text.split():
-        if token not in dictionary:
-            dictionary.append(token)
+    # for token in lemmatized_text.split():
+    #     if token not in dictionary:
+    #         dictionary.append(token)
 
     return lemmatized_text
 
@@ -58,6 +59,18 @@ def bag_of_words(text, dct):
     for i, word in enumerate(dct):
         vector[i] = token_counts.get(word, 0)
     return vector
+
+
+def model_Word2Vec(data, vectors_w2v):
+    sentences = [sentence.split() for sentence in data['preprocessed_text']]
+    w2v = Word2Vec(sentences, vector_size=300, window=5, min_count=5, workers=4)
+    for sentence in sentences:
+        words_vecs = [w2v.wv[word] for word in sentence if word in w2v.wv]
+        if len(words_vecs) == 0:
+            vectors_w2v.append(np.zeros(300))
+            continue
+        words_vecs = np.array(words_vecs)
+        vectors_w2v.append(words_vecs.mean(axis=0))
 
 
 # Загрузка TSKV файла с данными
@@ -94,7 +107,7 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 1500
+n = 1000
 data = pd.concat([
     data[data['sentiment'] == -1].sample(n=n, random_state=1),
     data[data['sentiment'] == 0].sample(n=n, random_state=1),
@@ -115,7 +128,7 @@ print("Прогресс обработки текста")
 
 # Предварительная обработка текста
 for i in range(len(data)):
-    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dictionary)
+    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text']) # Вернуть словарик для мешка!!!!!
     pb.print_progress_bar(i)
 
 
@@ -124,22 +137,27 @@ pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length
 print("\nПрогресс векторизации текста")
 
 
-vectors = []
-
-# Векторизация текста
-for i in range(len(data)):
-    vectors.append(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
-    data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
-    pb.print_progress_bar(i)
+# vectors_bow = []
+#
+#
+# # Векторизация текста
+# for i in range(len(data)):
+#     vectors_bow.append(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
+#     data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
+#     pb.print_progress_bar(i)
 
 
 # print(*dictionary)
 # print(f"Количество слов в словаре: {len(dictionary)}")
 
 
+vectors_w2v = []
+model_Word2Vec(data, vectors_w2v)
+
+
 # Разделяем данные на обучающую и тестовую выборки
 (train_set, test_set, train_labels, test_labels) = train_test_split(
-    vectors,
+    vectors_w2v,
     data['sentiment'],
     test_size=0.3,
     random_state=42

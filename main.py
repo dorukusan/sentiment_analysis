@@ -15,7 +15,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import string
 
 
 nlp_rus = spacy.load("ru_core_news_sm")
@@ -92,7 +91,6 @@ def preprocessing_data(data, language):
         dataset['text'] = dataset['text'].str.slice(5)  # Срез лишнего
         dataset['rating'] = dataset['rating'].str.slice(7, -1)
         dataset = dataset[dataset['rating'].isin(['1', '3', '5'])]
-        # data['sentiment'] = data['rating']
         dataset['sentiment'] = dataset['rating'].replace({'1': 0, '3': 1, '5': 2})
     else:
         dataset = dataset[['text', 'sentiment']]
@@ -114,111 +112,135 @@ def preprocessing_data(data, language):
     return dataset
 
 
-# Консольное меню
+# Консольное меню для выбора датасета
 print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленький синтетический датасет на английском (pos, neu, neg)\n"
       "[3] Твиты про авиакомпанию (pos, neu, neg)\n[4] Отзывы на фильмы (только pos и neg)\n[0] ВЫХОД")
 
-lang = "eng"
-
-data = pd.read_csv('Tweets.csv')
-data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
-data = preprocessing_data(data, lang)
-
-# # Загрузка файла с данными
-# while True:
-#     menu = int(input("\nВыберите датасет: "))
-#     n = 1000
-#     lang = "eng"
-#     if menu == 1:
-#         data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t')
-#         data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
-#         lang = "rus"
-#         data = preprocessing_data(data, lang)
+# lang = "eng"
 #
-#         data = pd.concat([
-#             data[data['sentiment'] == 0].sample(n=n, random_state=1),
-#             data[data['sentiment'] == 1].sample(n=n, random_state=1),
-#             data[data['sentiment'] == 2].sample(n=n, random_state=1)])
-#         data.reset_index(drop=True, inplace=True)
-#
-#     elif menu == 2:
-#         data = pd.read_csv('sentiment_analysis.csv')
-#         data = preprocessing_data(data, lang)
-#
-#     elif menu == 3:
-#         data = pd.read_csv('Tweets.csv')
-#         data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
-#         data = preprocessing_data(data, lang)
-#
-#     elif menu == 4:
-#         data = pd.read_csv('IMDB-Dataset.csv')
-#         data.rename(columns={'review': 'text'}, inplace=True)
-#         data = preprocessing_data(data, lang)
-#         data = pd.concat([
-#             data[data['sentiment'] == 0].sample(n=n, random_state=1),
-#             data[data['sentiment'] == ].sample(n=n, random_state=1)])
-#         data.reset_index(drop=True, inplace=True)
-#
-#     elif menu == 0:
-#         print("\nВЫХОД ИЗ ПРОГРАММЫ")
-#         # exit(0)
-#         continue
-#     else:
-#         print("Выберите существующий датасет!")
+# data = pd.read_csv('Tweets.csv')
+# data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
+# data = preprocessing_data(data, lang)
+
+# Загрузка файла с данными
+while True:
+    menu = int(input("\nВыберите датасет: "))
+    n = 1000
+    lang = "eng"
+
+    if menu == 1:
+        data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t')
+        data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
+        lang = "rus"
+        data = preprocessing_data(data, lang)
+
+        data = pd.concat([
+            data[data['sentiment'] == 0].sample(n=n, random_state=1),
+            data[data['sentiment'] == 1].sample(n=n, random_state=1),
+            data[data['sentiment'] == 2].sample(n=n, random_state=1)])
+        data.reset_index(drop=True, inplace=True)
+        continue
+
+    elif menu == 2:
+        data = pd.read_csv('sentiment_analysis.csv')
+        data = preprocessing_data(data, lang)
+        continue
+
+    elif menu == 3:
+        data = pd.read_csv('Tweets.csv')
+        data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
+        data = preprocessing_data(data, lang)
+        continue
+
+    elif menu == 4:
+        data = pd.read_csv('IMDB-Dataset.csv')
+        data.rename(columns={'review': 'text'}, inplace=True)
+        data = preprocessing_data(data, lang)
+        data = pd.concat([
+            data[data['sentiment'] == 0].sample(n=n, random_state=1),
+            data[data['sentiment'] == ].sample(n=n, random_state=1)])
+        data.reset_index(drop=True, inplace=True)
+        continue
+
+    elif menu == 0:
+        print("\nВЫХОД ИЗ ПРОГРАММЫ")
+        exit(0)
+
+    else:
+        print("Выберите существующий датасет!")
 
 
-dictionary = []
+def general_preprocessing(data, dct, language):
+    # Прогресс-бар для наглядности прогресса обработки текста
+    pb = ProgressBar(total=len(data) - 1, prefix='Progress', suffix='Complete', length=50)
+    print("Прогресс обработки текста")
+
+    # Предварительная обработка текста
+    for i in range(len(data)):
+        data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dct, language)
+        pb.print_progress_bar(i)
 
 
-# Прогресс-бар для наглядности прогресса обработки текста
-pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length=50)
-print("Прогресс обработки текста")
+def vectorize(data, dct):
+    # Прогресс-бар для наглядности прогресса векторизации текста
+    pb = ProgressBar(total=len(data) - 1, prefix='Progress', suffix='Complete', length=50)
+    print("\nПрогресс векторизации текста")
 
-# Предварительная обработка текста
-for i in range(len(data)):
-    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dictionary, lang)
-    pb.print_progress_bar(i)
-
-
-# Прогресс-бар для наглядности прогресса векторизации текста
-pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length=50)
-print("\nПрогресс векторизации текста")
+    # Векторизация текста
+    for i in range(len(data)):
+        vectors_bow.append(bag_of_words(data.loc[i, 'preprocessed_text'], dct))
+        data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dct))
+        pb.print_progress_bar(i)
 
 
-vectors_bow = []
+# Разделяем данные на обучающую и тестовую выборки
+def split_data(vectors):
+    train_set, test_set, train_labels, test_labels = train_test_split(
+        vectors,
+        data['sentiment'],
+        test_size=0.3,
+        random_state=42
+    )
+
+    return train_set, test_set, train_labels, test_labels
 
 
-# Векторизация текста
-for i in range(len(data)):
-    vectors_bow.append(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
-    data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
-    pb.print_progress_bar(i)
+# Консольное меню для выбора модели векторизации
+print("Доступные модели векторизации\n\n[1] Мешок слов\n[2] Word2Vec [3] Сравнить обе модели\n[0] ВЫХОД")
 
+while True:
+    menu = int(input("\nВыберите модель векторизации: "))
+    dictionary = []
+    vectors_bow = []
+    vectors_w2v = []
 
-# print(*dictionary)
-# print(f"Количество слов в словаре: {len(dictionary)}")
+    two_models = False
 
+    if menu == 1:
+        general_preprocessing(data, dictionary, lang)
+        vectorize(data, dictionary)
+        X_train, X_test, y_train, y_test = split_data(vectors_bow)
+        continue
 
-vectors_w2v = []
-model_Word2Vec(data, vectors_w2v)
+    elif menu == 2:
+        general_preprocessing(data, dictionary, lang)
+        X_train, X_test, y_train, y_test = split_data(vectors_w2v)
+        continue
 
+    elif menu == 3:
+        general_preprocessing(data, dictionary, lang)
+        vectorize(data, dictionary)
+        X_train, X_test, y_train, y_test = split_data(vectors_bow)
+        X_train_2, X_test_2, y_train_2, y_test_2 = split_data(vectors_w2v)
+        two_models = True
+        continue
 
-# Разделяем данные на обучающую и тестовую выборки для машка слов
-(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow) = train_test_split(
-    vectors_bow,
-    data['sentiment'],
-    test_size=0.3,
-    random_state=42
-)
+    elif menu == 0:
+        print("\nВЫХОД ИЗ ПРОГРАММЫ")
+        exit(0)
 
-
-# Разделяем данные на обучающую и тестовую выборки для Word2Vec
-(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v) = train_test_split(
-    vectors_w2v,
-    data['sentiment'],
-    test_size=0.3,
-    random_state=42
-)
+    else:
+        print("Выберите существующую модель!")
 
 
 # Метод опорных векторов
@@ -266,6 +288,65 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
+# Консольное меню для выбора модели классификации
+print("Доступные модели классификации\n\n[1] Метод опорных векторов\n[2] Логистическая регрессия"
+      "[3] Гауссовский наивный байесовский классификатор\n[4] Нейронная сеть"
+      "[5] Сравнить все модели\n[0] ВЫХОД")
+
+while True:
+    menu = int(input("\nВыберите модель классификации: "))
+
+    if menu == 1:
+        model_svm(X_train, X_test, y_train, y_test)
+        if two_models:
+            model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
+
+        continue
+
+    elif menu == 2:
+        model_logistic_regression(X_train, X_test, y_train, y_test)
+        if two_models:
+            model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
+
+        continue
+
+    elif menu == 3:
+        model_gnb(X_train, X_test, y_train, y_test)
+        if two_models:
+            model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)
+
+        continue
+
+    elif menu == 4:
+        # print("Обучение моделей с использованием Bag-of-words")
+        model_svm(X_train, X_test, y_train, y_test)
+        model_logistic_regression(X_train, X_test, y_train, y_test)
+        model_gnb(X_train, X_test, y_train, y_test)
+        if two_models:
+            model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
+            model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
+            model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)
+
+        continue
+
+    elif menu == 5:
+        model_svm(X_train, X_test, y_train, y_test)
+        model_logistic_regression(X_train, X_test, y_train, y_test)
+        model_gnb(X_train, X_test, y_train, y_test)
+
+        continue
+
+    elif menu == 0:
+        print("\nВЫХОД ИЗ ПРОГРАММЫ")
+        exit(0)
+
+    else:
+        print("Выберите существующую модель!")
+
+
+model_Word2Vec(data, vectors_w2v)
+
+
 # print("Обучение моделей с использованием Bag-of-words")
 # model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
 # model_logistic_regression(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
@@ -310,7 +391,7 @@ model = SimpleNN()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-for epoch in range(100):
+for epoch in range(10000):
     model.train()
     optimizer.zero_grad()  # Обнуляем градиенты
 

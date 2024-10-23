@@ -3,6 +3,7 @@ from collections import Counter
 from sklearn.model_selection import train_test_split
 from console_progressbar import ProgressBar
 from sklearn.svm import SVC
+from sklearn.cluster import KMeans
 from sklearn import metrics
 import re
 import spacy
@@ -77,9 +78,9 @@ data.reset_index(drop=True, inplace=True)
 data['preprocessed_text'] = None
 data['vector'] = None
 data['sentiment'] = data['rating']
-data['sentiment'] = data['sentiment'].replace({1: -1, 2: -1, 3: 0, 4: 1, 5: 1})
-# counts = data['sentiment'].value_counts()
-# print(counts)
+data['sentiment'] = data['sentiment'].replace({1: -1, 2: 0, 3: 0, 4: 0, 5: 1})
+counts = data['sentiment'].value_counts()
+print(counts)
 
 
 # Снимаем ограничения вывода таблицы
@@ -91,7 +92,7 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 600
+n = 10000
 data = pd.concat([
     data[data['sentiment'] == -1].sample(n=n, random_state=1),
     data[data['sentiment'] == 0].sample(n=n, random_state=1),
@@ -145,21 +146,44 @@ for i in range(len(data)):
 # print(test_labels)
 
 
-# Обучение модели SVM
-svm = SVC(kernel='linear')
-svm.fit(train_set, train_labels)
+# # Обучение модели SVM
+# svm = SVC(kernel='linear')
+# svm.fit(train_set, train_labels)
+#
+# # Предсказание на тестовых данных (SVM)
+# model_predictions_svm = svm.predict(test_set)
 
-# Предсказание на тестовых данных (SVM)
-model_predictions_svm = svm.predict(test_set)
 
-# Оценка точности для SVM
-accuracy_svm = metrics.accuracy_score(test_labels, model_predictions_svm)
+# Обучение модели KMeans с использованием инициализации k-means++
+kmeans = KMeans(n_clusters=3, init='k-means++', max_iter=1000, n_init=10, random_state=42)
+kmeans.fit(train_set)
 
-print("\nОценка точности для SVM:", accuracy_svm)
-print(metrics.classification_report(test_labels, model_predictions_svm))
+# Предсказание на тестовых данных (KMeans)
+model_predictions_kmeans = kmeans.predict(test_set)
 
-print(*test_labels)
-print(*model_predictions_svm)
+
+# Создаем DataFrame для удобства
+results = pd.DataFrame({'Cluster': model_predictions_kmeans, 'TrueLabel': test_labels})
+
+# Находим наиболее частую метку для каждого кластера
+cluster_labels = results.groupby('Cluster')['TrueLabel'].agg(lambda x: x.mode()[0]).to_dict()
+
+print("\nСоответствие кластеров и истинных меток:")
+print(cluster_labels)
+
+
+# Сопоставление кластеров с истинными метками
+mapped_predictions_kmeans = np.array([cluster_labels[cluster] for cluster in model_predictions_kmeans])
+
+# Оценка точности для KMeans и SVM
+accuracy_kmeans = metrics.accuracy_score(test_labels, mapped_predictions_kmeans)
+# accuracy_svm = metrics.accuracy_score(test_labels, model_predictions_svm)
+
+print("\nОценка точности для KMeans:", accuracy_kmeans)
+print(metrics.classification_report(test_labels, mapped_predictions_kmeans))
+#
+# print("\nОценка точности для SVM:", accuracy_svm)
+# print(metrics.classification_report(test_labels, model_predictions_svm))
 
 
 # print(*dictionary)

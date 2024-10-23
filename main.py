@@ -146,6 +146,11 @@ while True:
         data = pd.read_csv('Tweets.csv')
         data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
         data = preprocessing_data(data, lang)
+
+        data = pd.concat([
+            data[data['sentiment'] == 0].sample(n=n, random_state=1),
+            data[data['sentiment'] == 1].sample(n=n, random_state=1),
+            data[data['sentiment'] == 2].sample(n=n, random_state=1)])
         break
 
     elif menu == 4:
@@ -228,10 +233,7 @@ while True:
     elif menu == 3:
         general_preprocessing(data, dictionary, lang)
         vectorize(data, dictionary)
-
-        bag_of_words(data, vectors_bow)
         word2vec(data, vectors_w2v)
-
         X_train, X_test, y_train, y_test = split_data(vectors_bow)
         X_train_2, X_test_2, y_train_2, y_test_2 = split_data(vectors_w2v)
         which_model = "BOTH"
@@ -302,7 +304,7 @@ def model_nn(train_x, test_x, train_y, test_y):
     class SimpleNN(nn.Module):
         def __init__(self):
             super(SimpleNN, self).__init__()
-            self.fc1 = nn.Linear(train_x.shape[1], 150)
+            self.fc1 = nn.Linear(X_train.shape[1], 150)
             self.fc2 = nn.Linear(150, 3)
             self.relu = nn.ReLU()
 

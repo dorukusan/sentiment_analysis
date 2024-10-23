@@ -122,9 +122,9 @@ print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленьк
 # Загрузка файла с данными
 while True:
     menu = int(input("\nВыберите датасет: "))
-    n = 300
+    n = 1000
     lang = "eng"
-
+    out_features = 3
     if menu == 1:
         data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t')
         data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
@@ -162,7 +162,9 @@ while True:
         data = pd.concat([
             data[data['sentiment'] == 0].sample(n=n, random_state=1),
             data[data['sentiment'] == 2].sample(n=n, random_state=1)])
+        data['sentiment'] = data['sentiment'].replace({2: 1})
         data.reset_index(drop=True, inplace=True)
+        out_features = 2
         break
 
     elif menu == 0:
@@ -310,7 +312,7 @@ def model_nn(train_x, test_x, train_y, test_y):
         def __init__(self):
             super(SimpleNN, self).__init__()
             self.fc1 = nn.Linear(X_train.shape[1], 150)
-            self.fc2 = nn.Linear(150, 3)
+            self.fc2 = nn.Linear(150, out_features)
             self.relu = nn.ReLU()
 
         def forward(self, x):

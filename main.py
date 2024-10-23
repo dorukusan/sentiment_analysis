@@ -71,7 +71,7 @@ def bag_of_words(text, dct):
     return vector
 
 
-def model_Word2Vec(data, vectors_w2v):
+def word2vec(data, vectors_w2v):
     sentences = [sentence.split() for sentence in data['preprocessed_text']]
     w2v = Word2Vec(sentences, vector_size=100, window=5, min_count=5, workers=4)
     for sentence in sentences:
@@ -98,8 +98,9 @@ def preprocessing_data(data, language):
     dataset['preprocessed_text'] = None
     dataset['vector'] = None
     dataset.reset_index(drop=True, inplace=True)
-    counts = dataset['sentiment'].value_counts()
-    print(counts)
+
+    # counts = dataset['sentiment'].value_counts()  # Узнаем количество значений каждого типа
+    # print(counts)
 
     # Снимаем ограничения вывода таблицы
     pd.set_option('display.max_rows', None)
@@ -107,7 +108,7 @@ def preprocessing_data(data, language):
     pd.set_option('display.max_colwidth', None)
     pd.set_option('display.width', None)
 
-    print(dataset[:10])
+    # print(dataset[:10])
 
     return dataset
 
@@ -116,11 +117,6 @@ def preprocessing_data(data, language):
 print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленький синтетический датасет на английском (pos, neu, neg)\n"
       "[3] Твиты про авиакомпанию (pos, neu, neg)\n[4] Отзывы на фильмы (только pos и neg)\n[0] ВЫХОД")
 
-# lang = "eng"
-#
-# data = pd.read_csv('Tweets.csv')
-# data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
-# data = preprocessing_data(data, lang)
 
 # Загрузка файла с данными
 while True:
@@ -139,18 +135,18 @@ while True:
             data[data['sentiment'] == 1].sample(n=n, random_state=1),
             data[data['sentiment'] == 2].sample(n=n, random_state=1)])
         data.reset_index(drop=True, inplace=True)
-        continue
+        break
 
     elif menu == 2:
         data = pd.read_csv('sentiment_analysis.csv')
         data = preprocessing_data(data, lang)
-        continue
+        break
 
     elif menu == 3:
         data = pd.read_csv('Tweets.csv')
         data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
         data = preprocessing_data(data, lang)
-        continue
+        break
 
     elif menu == 4:
         data = pd.read_csv('IMDB-Dataset.csv')
@@ -158,9 +154,9 @@ while True:
         data = preprocessing_data(data, lang)
         data = pd.concat([
             data[data['sentiment'] == 0].sample(n=n, random_state=1),
-            data[data['sentiment'] == ].sample(n=n, random_state=1)])
+            data[data['sentiment'] == 2].sample(n=n, random_state=1)])
         data.reset_index(drop=True, inplace=True)
-        continue
+        break
 
     elif menu == 0:
         print("\nВЫХОД ИЗ ПРОГРАММЫ")
@@ -206,7 +202,7 @@ def split_data(vectors):
 
 
 # Консольное меню для выбора модели векторизации
-print("Доступные модели векторизации\n\n[1] Мешок слов\n[2] Word2Vec [3] Сравнить обе модели\n[0] ВЫХОД")
+print("\nДоступные модели векторизации:\n\n[1] Мешок слов\n[2] Word2Vec\n[3] Сравнить обе модели\n[0] ВЫХОД")
 
 while True:
     menu = int(input("\nВыберите модель векторизации: "))
@@ -214,26 +210,32 @@ while True:
     vectors_bow = []
     vectors_w2v = []
 
-    two_models = False
+    which_model = "BOW"  # BOW, W2V, BOTH
 
     if menu == 1:
         general_preprocessing(data, dictionary, lang)
         vectorize(data, dictionary)
         X_train, X_test, y_train, y_test = split_data(vectors_bow)
-        continue
+        break
 
     elif menu == 2:
         general_preprocessing(data, dictionary, lang)
+        word2vec(data, vectors_w2v)
         X_train, X_test, y_train, y_test = split_data(vectors_w2v)
-        continue
+        which_model = "W2V"
+        break
 
     elif menu == 3:
         general_preprocessing(data, dictionary, lang)
         vectorize(data, dictionary)
+
+        bag_of_words(data, vectors_bow)
+        word2vec(data, vectors_w2v)
+
         X_train, X_test, y_train, y_test = split_data(vectors_bow)
         X_train_2, X_test_2, y_train_2, y_test_2 = split_data(vectors_w2v)
-        two_models = True
-        continue
+        which_model = "BOTH"
+        break
 
     elif menu == 0:
         print("\nВЫХОД ИЗ ПРОГРАММЫ")
@@ -288,53 +290,110 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
+def model_nn(train_x, test_x, train_y, test_y):
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(train_x)
+    X_test = scaler.transform(test_x)
+    X_train_tensor = torch.FloatTensor(X_train)
+    Y_train_tensor = torch.LongTensor(train_y.values)
+    X_test_tensor = torch.FloatTensor(X_test)
+    Y_test_tensor = torch.LongTensor(test_y.values)
+
+    class SimpleNN(nn.Module):
+        def __init__(self):
+            super(SimpleNN, self).__init__()
+            self.fc1 = nn.Linear(train_x.shape[1], 150)
+            self.fc2 = nn.Linear(150, 3)
+            self.relu = nn.ReLU()
+
+        def forward(self, x):
+            x = self.fc1(x)
+            x = self.relu(x)
+            x = self.fc2(x)
+            return x
+
+    model = SimpleNN()
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+    n = 200
+    pb = ProgressBar(total=n - 1, prefix='Progress', suffix='Complete', length=50)
+    print("\nПрогресс обучения нейронной сети")
+    for epoch in range(n):
+        model.train()
+        optimizer.zero_grad()  # Обнуляем градиенты
+
+        outputs = model(X_train_tensor)  # Прямой проход
+        loss = criterion(outputs, Y_train_tensor)  # Вычисление потерь
+        loss.backward()  # Обратное распространение ошибок
+        optimizer.step()  # Обновление весов
+
+        pb.print_progress_bar(epoch)
+
+    model.eval()
+    with torch.no_grad():
+        test_outputs = model(X_test_tensor)
+        _, model_predictions_nn = torch.max(test_outputs.data, 1)
+
+    # Оценка точности для Neural Network
+    accuracy_nn = metrics.accuracy_score(Y_test_tensor, model_predictions_nn)
+    print("\nОценка точности для Neural Network:", accuracy_nn)
+    print(metrics.classification_report(Y_test_tensor, model_predictions_nn))
+
+
 # Консольное меню для выбора модели классификации
-print("Доступные модели классификации\n\n[1] Метод опорных векторов\n[2] Логистическая регрессия"
-      "[3] Гауссовский наивный байесовский классификатор\n[4] Нейронная сеть"
+print("\nДоступные модели классификации:\n\n[1] Метод опорных векторов\n[2] Логистическая регрессия\n"
+      "[3] Гауссовский наивный байесовский классификатор\n[4] Нейронная сеть\n"
       "[5] Сравнить все модели\n[0] ВЫХОД")
 
 while True:
     menu = int(input("\nВыберите модель классификации: "))
+    if which_model == "BOW" or which_model == "BOTH":
+        print("\nДля модели Bag-of-words")
+    elif which_model == "W2V":
+        print("\nДля модели Word2Vec")
 
     if menu == 1:
         model_svm(X_train, X_test, y_train, y_test)
-        if two_models:
+        if which_model == "BOTH":
+            print("Для модели Word2Vec")
             model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
-
-        continue
+        break
 
     elif menu == 2:
         model_logistic_regression(X_train, X_test, y_train, y_test)
-        if two_models:
+        if which_model == "BOTH":
+            print("Для модели Word2Vec")
             model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
-
-        continue
+        break
 
     elif menu == 3:
         model_gnb(X_train, X_test, y_train, y_test)
-        if two_models:
+        if which_model == "BOTH":
+            print("Для модели Word2Vec")
             model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)
-
-        continue
+        break
 
     elif menu == 4:
-        # print("Обучение моделей с использованием Bag-of-words")
-        model_svm(X_train, X_test, y_train, y_test)
-        model_logistic_regression(X_train, X_test, y_train, y_test)
-        model_gnb(X_train, X_test, y_train, y_test)
-        if two_models:
-            model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
-            model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
-            model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)
-
-        continue
+        model_nn(X_train, X_test, y_train, y_test)
+        if which_model == "BOTH":
+            print("Для модели Word2Vec")
+            model_nn(X_train_2, X_test_2, y_train_2, y_test_2)
+        break
 
     elif menu == 5:
         model_svm(X_train, X_test, y_train, y_test)
         model_logistic_regression(X_train, X_test, y_train, y_test)
         model_gnb(X_train, X_test, y_train, y_test)
-
-        continue
+        model_nn(X_train, X_test, y_train, y_test)
+        if which_model == "BOTH":
+            print("Для модели Word2Vec")
+            model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
+            model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
+            model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)
+            model_nn(X_train_2, X_test_2, y_train_2, y_test_2)
+        break
 
     elif menu == 0:
         print("\nВЫХОД ИЗ ПРОГРАММЫ")
@@ -342,71 +401,3 @@ while True:
 
     else:
         print("Выберите существующую модель!")
-
-
-model_Word2Vec(data, vectors_w2v)
-
-
-# print("Обучение моделей с использованием Bag-of-words")
-# model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
-# model_logistic_regression(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
-# model_gnb(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
-#
-#
-# print("Обучение моделей с использованием Word2Vec")
-# model_svm(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
-# model_logistic_regression(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
-# model_gnb(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
-
-
-train_set_w2v = np.array(train_set_w2v)
-test_set_w2v = np.array(test_set_w2v)
-
-
-scaler = StandardScaler()
-X_train = scaler.fit_transform(train_set_w2v)
-X_test = scaler.transform(test_set_w2v)
-X_train_tensor = torch.FloatTensor(train_set_w2v)
-Y_train_tensor = torch.LongTensor(train_labels_w2v.values)
-X_test_tensor = torch.FloatTensor(test_set_w2v)
-Y_test_tensor = torch.LongTensor(test_labels_w2v.values)
-
-
-class SimpleNN(nn.Module):
-    def __init__(self):
-        super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(X_train.shape[1], 200)
-        self.fc2 = nn.Linear(200, 3)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.fc2(x)
-        return x
-
-
-model = SimpleNN()
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-for epoch in range(10000):
-    model.train()
-    optimizer.zero_grad()  # Обнуляем градиенты
-
-    outputs = model(X_train_tensor)  # Прямой проход
-    loss = criterion(outputs, Y_train_tensor)  # Вычисление потерь
-    loss.backward()  # Обратное распространение ошибок
-    optimizer.step()  # Обновление весов
-
-    if (epoch + 1) % 10 == 0:
-        print(f'Epoch [{epoch + 1}/100], Loss: {loss.item():.4f}')
-
-model.eval()
-with torch.no_grad():
-    test_outputs = model(X_test_tensor)
-    _, predicted = torch.max(test_outputs.data, 1)
-
-accuracy = (predicted == Y_test_tensor).sum().item() / Y_test_tensor.size(0)
-print(f'Accuracy: {accuracy:.4f}')

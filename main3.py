@@ -4,7 +4,7 @@ from gensim.models import Word2Vec
 from sklearn.model_selection import train_test_split
 from console_progressbar import ProgressBar
 from sklearn.svm import SVC
-from sklearn.cluster import KMeans
+from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn import metrics
 import re
@@ -77,15 +77,17 @@ def model_Word2Vec(data, vectors_w2v):
 
 # # Загрузка TSKV файла с данными
 # data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
-data = pd.read_csv('sentiment_analysis.csv')
-print(data[:10])
+# data = pd.read_csv('sentiment_analysis.csv')
+data = pd.read_csv('Tweets.csv')
+# print(data[:10])
 
 # Установка имен столбцов
 # data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
 
 # Фильтр только столбцов с текстом отзыва и оценкой
 # data = data[['text', 'rating']]
-data = data[['text', 'sentiment']]
+# data = data[['text', 'sentiment']]
+data = data[['text', 'airline_sentiment']]
 
 # Срез лишнего
 # data['text'] = data['text'].str.slice(5)
@@ -102,8 +104,10 @@ data['preprocessed_text'] = None
 data['vector'] = None
 # data['sentiment'] = data['rating']
 # data['sentiment'] = data['sentiment'].replace({1: -1, 2: 0, 3: 0, 4: 0, 5: 1})
-data['sentiment'] = data['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
-counts = data['sentiment'].value_counts()
+# data['sentiment'] = data['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
+data['airline_sentiment'] = data['airline_sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
+# counts = data['sentiment'].value_counts()
+counts = data['airline_sentiment'].value_counts()
 print(counts)
 
 
@@ -167,7 +171,7 @@ model_Word2Vec(data, vectors_w2v)
 # Разделяем данные на обучающую и тестовую выборки для машка слов
 (train_set_bow, test_set_bow, train_labels_bow, test_labels_bow) = train_test_split(
     vectors_bow,
-    data['sentiment'],
+    data['airline_sentiment'],
     test_size=0.3,
     random_state=42
 )
@@ -176,7 +180,7 @@ model_Word2Vec(data, vectors_w2v)
 # Разделяем данные на обучающую и тестовую выборки для Word2Vec
 (train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v) = train_test_split(
     vectors_w2v,
-    data['sentiment'],
+    data['airline_sentiment'],
     test_size=0.3,
     random_state=42
 )
@@ -196,29 +200,18 @@ def model_svm(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_svm))
 
 
-def model_kmeans(train_x, test_x, test_y):
-    # Обучение модели KMeans с использованием инициализации k-means++
-    kmeans = KMeans(n_clusters=3, init='k-means++', max_iter=1000, n_init=10, random_state=42)
-    kmeans.fit(train_x)
+def model_logistic_regression(train_x, test_x, train_y, test_y):
+    # Обучение модели Logistic Regression
+    logreg = LogisticRegression()
+    logreg.fit(train_x, train_y)
 
-    # Предсказание на тестовых данных (KMeans)
-    model_predictions_kmeans = kmeans.predict(test_x)
+    # Предсказание на тестовых данных (Logistic Regression)
+    model_predictions_logreg = logreg.predict(test_x)
 
-    # Создаем DataFrame для удобства
-    results = pd.DataFrame({'Cluster': model_predictions_kmeans, 'TrueLabel': test_y})
-
-    # Находим наиболее частую метку для каждого кластера
-    cluster_labels = results.groupby('Cluster')['TrueLabel'].agg(lambda x: x.mode()[0]).to_dict()
-    print("\nСоответствие кластеров и истинных меток:")
-    print(cluster_labels)
-
-    # Сопоставление кластеров с истинными метками
-    mapped_predictions_kmeans = np.array([cluster_labels[cluster] for cluster in model_predictions_kmeans])
-
-    # Оценка точности для KMeans
-    accuracy_kmeans = metrics.accuracy_score(test_y, mapped_predictions_kmeans)
-    print("\nОценка точности для KMeans:", accuracy_kmeans)
-    print(metrics.classification_report(test_y, mapped_predictions_kmeans))
+    # Оценка точности для Logistic Regression
+    accuracy_logreg = metrics.accuracy_score(test_y, model_predictions_logreg)
+    print("\nОценка точности для Logistic Regression:", accuracy_logreg)
+    print(metrics.classification_report(test_y, model_predictions_logreg))
 
 
 def model_gnb(train_x, test_x, train_y, test_y):
@@ -230,15 +223,15 @@ def model_gnb(train_x, test_x, train_y, test_y):
     model_predictions_gnb = gnb.predict(test_x)
 
     # Оценка точности для GaussianNB
-    accuracy_kmeans = metrics.accuracy_score(test_y, model_predictions_gnb)
-    print("\nОценка точности для GaussianNB:", accuracy_kmeans)
+    accuracy_gnb = metrics.accuracy_score(test_y, model_predictions_gnb)
+    print("\nОценка точности для GaussianNB:", accuracy_gnb)
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
 model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
-model_kmeans(train_set_bow, test_set_bow, test_labels_bow)
+model_logistic_regression(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
 model_gnb(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
 
 model_svm(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
-model_kmeans(train_set_w2v, test_set_w2v, test_labels_w2v)
+model_logistic_regression(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
 model_gnb(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)

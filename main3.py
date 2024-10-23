@@ -40,14 +40,14 @@ def lemmatize_text(cleaned_text):
 
 
 # Предварительная обработка текста и заполнение словаря
-def preprocess_text(text):
+def preprocess_text(text, dictionary):
     tokens = tokenize(text)
     tokenize_text = ', '.join(tokens)
     cleaned_text = clean_text(tokenize_text)
     lemmatized_text = lemmatize_text(cleaned_text)
-    # for token in lemmatized_text.split():
-    #     if token not in dictionary:
-    #         dictionary.append(token)
+    for token in lemmatized_text.split():
+        if token not in dictionary:
+            dictionary.append(token)
 
     return lemmatized_text
 
@@ -63,11 +63,11 @@ def bag_of_words(text, dct):
 
 def model_Word2Vec(data, vectors_w2v):
     sentences = [sentence.split() for sentence in data['preprocessed_text']]
-    w2v = Word2Vec(sentences, vector_size=300, window=5, min_count=5, workers=4)
+    w2v = Word2Vec(sentences, vector_size=100, window=5, min_count=5, workers=4)
     for sentence in sentences:
         words_vecs = [w2v.wv[word] for word in sentence if word in w2v.wv]
         if len(words_vecs) == 0:
-            vectors_w2v.append(np.zeros(300))
+            vectors_w2v.append(np.zeros(100))
             continue
         words_vecs = np.array(words_vecs)
         vectors_w2v.append(words_vecs.mean(axis=0))
@@ -85,15 +85,18 @@ data = data[['text', 'rating']]
 # Срез лишнего
 data['text'] = data['text'].str.slice(5)
 data['rating'] = data['rating'].str.slice(7, -1)
-data = data[data['rating'].isin(['1', '2', '3', '4', '5'])]
+# data = data[data['rating'].isin(['1', '2', '3', '4', '5'])]
+data = data[data['rating'].isin(['1', '3', '5'])]
 data['rating'] = data['rating'].astype(int)
 data.reset_index(drop=True, inplace=True)
+
 
 # Добавление новых столбцов
 data['preprocessed_text'] = None
 data['vector'] = None
 data['sentiment'] = data['rating']
-data['sentiment'] = data['sentiment'].replace({1: -1, 2: 0, 3: 0, 4: 0, 5: 1})
+# data['sentiment'] = data['sentiment'].replace({1: -1, 2: 0, 3: 0, 4: 0, 5: 1})
+data['sentiment'] = data['sentiment'].replace({1: -1, 3: 0, 5: 1})
 counts = data['sentiment'].value_counts()
 print(counts)
 
@@ -107,7 +110,7 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 1000
+n = 500
 data = pd.concat([
     data[data['sentiment'] == -1].sample(n=n, random_state=1),
     data[data['sentiment'] == 0].sample(n=n, random_state=1),
@@ -128,7 +131,7 @@ print("Прогресс обработки текста")
 
 # Предварительная обработка текста
 for i in range(len(data)):
-    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text']) # Вернуть словарик для мешка!!!!!
+    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dictionary)
     pb.print_progress_bar(i)
 
 
@@ -137,14 +140,14 @@ pb = ProgressBar(total=len(data)-1, prefix='Progress', suffix='Complete', length
 print("\nПрогресс векторизации текста")
 
 
-# vectors_bow = []
-#
-#
-# # Векторизация текста
-# for i in range(len(data)):
-#     vectors_bow.append(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
-#     data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
-#     pb.print_progress_bar(i)
+vectors_bow = []
+
+
+# Векторизация текста
+for i in range(len(data)):
+    vectors_bow.append(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
+    data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
+    pb.print_progress_bar(i)
 
 
 # print(*dictionary)
@@ -155,8 +158,17 @@ vectors_w2v = []
 model_Word2Vec(data, vectors_w2v)
 
 
-# Разделяем данные на обучающую и тестовую выборки
-(train_set, test_set, train_labels, test_labels) = train_test_split(
+# Разделяем данные на обучающую и тестовую выборки для машка слов
+(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow) = train_test_split(
+    vectors_bow,
+    data['sentiment'],
+    test_size=0.3,
+    random_state=42
+)
+
+
+# Разделяем данные на обучающую и тестовую выборки для Word2Vec
+(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v) = train_test_split(
     vectors_w2v,
     data['sentiment'],
     test_size=0.3,
@@ -217,6 +229,10 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
-model_svm(train_set, test_set, train_labels, test_labels)
-model_kmeans(train_set, test_set, test_labels)
-model_gnb(train_set, test_set, train_labels, test_labels)
+model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
+model_kmeans(train_set_bow, test_set_bow, test_labels_bow)
+model_gnb(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
+
+model_svm(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
+model_kmeans(train_set_w2v, test_set_w2v, test_labels_w2v)
+model_gnb(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)

@@ -121,7 +121,7 @@ print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленьк
 # Загрузка файла с данными
 while True:
     menu = int(input("\nВыберите датасет: "))
-    n = 1000
+    n = 300
     lang = "eng"
 
     if menu == 1:
@@ -151,6 +151,7 @@ while True:
             data[data['sentiment'] == 0].sample(n=n, random_state=1),
             data[data['sentiment'] == 1].sample(n=n, random_state=1),
             data[data['sentiment'] == 2].sample(n=n, random_state=1)])
+        data.reset_index(drop=True, inplace=True)
         break
 
     elif menu == 4:
@@ -352,35 +353,35 @@ print("\nДоступные модели классификации:\n\n[1] Ме
 while True:
     menu = int(input("\nВыберите модель классификации: "))
     if which_model == "BOW" or which_model == "BOTH":
-        print("\nДля модели Bag-of-words")
+        print("\n1. Для модели Bag-Of-Words")
     elif which_model == "W2V":
-        print("\nДля модели Word2Vec")
+        print("\n1. Для модели Word2Vec")
 
     if menu == 1:
         model_svm(X_train, X_test, y_train, y_test)
         if which_model == "BOTH":
-            print("Для модели Word2Vec")
+            print("2. Для модели Word2Vec")
             model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
         break
 
     elif menu == 2:
         model_logistic_regression(X_train, X_test, y_train, y_test)
         if which_model == "BOTH":
-            print("Для модели Word2Vec")
+            print("2. Для модели Word2Vec")
             model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
         break
 
     elif menu == 3:
         model_gnb(X_train, X_test, y_train, y_test)
         if which_model == "BOTH":
-            print("Для модели Word2Vec")
+            print("2. Для модели Word2Vec")
             model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)
         break
 
     elif menu == 4:
         model_nn(X_train, X_test, y_train, y_test)
         if which_model == "BOTH":
-            print("Для модели Word2Vec")
+            print("2. Для модели Word2Vec")
             model_nn(X_train_2, X_test_2, y_train_2, y_test_2)
         break
 
@@ -390,7 +391,7 @@ while True:
         model_gnb(X_train, X_test, y_train, y_test)
         model_nn(X_train, X_test, y_train, y_test)
         if which_model == "BOTH":
-            print("Для модели Word2Vec")
+            print("2. Для модели Word2Vec")
             model_svm(X_train_2, X_test_2, y_train_2, y_test_2)
             model_logistic_regression(X_train_2, X_test_2, y_train_2, y_test_2)
             model_gnb(X_train_2, X_test_2, y_train_2, y_test_2)

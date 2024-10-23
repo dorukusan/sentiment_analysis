@@ -3,6 +3,7 @@ from collections import Counter
 from gensim.models import Word2Vec
 from sklearn.model_selection import train_test_split
 from console_progressbar import ProgressBar
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
@@ -11,6 +12,10 @@ import re
 import spacy
 import pandas as pd
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import string
 
 
 nlp_rus = spacy.load("ru_core_news_sm")
@@ -88,10 +93,10 @@ def preprocessing_data(data, language):
         dataset['rating'] = dataset['rating'].str.slice(7, -1)
         dataset = dataset[dataset['rating'].isin(['1', '3', '5'])]
         # data['sentiment'] = data['rating']
-        dataset['sentiment'] = dataset['rating'].replace({'1': -1, '3': 0, '5': 1})
+        dataset['sentiment'] = dataset['rating'].replace({'1': 0, '3': 1, '5': 2})
     else:
         dataset = dataset[['text', 'sentiment']]
-        dataset['sentiment'] = dataset['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
+        dataset['sentiment'] = dataset['sentiment'].replace({'negative': 0, 'neutral': 1, 'positive': 2})
     dataset['preprocessed_text'] = None
     dataset['vector'] = None
     dataset.reset_index(drop=True, inplace=True)
@@ -113,47 +118,53 @@ def preprocessing_data(data, language):
 print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленький синтетический датасет на английском (pos, neu, neg)\n"
       "[3] Твиты про авиакомпанию (pos, neu, neg)\n[4] Отзывы на фильмы (только pos и neg)\n[0] ВЫХОД")
 
+lang = "eng"
 
-# Загрузка файла с данными
-while True:
-    menu = int(input("\nВыберите датасет: "))
-    n = 1000
-    lang = "eng"
-    if menu == 1:
-        data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t')
-        data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
-        lang = "rus"
-        data = preprocessing_data(data, lang)
+data = pd.read_csv('Tweets.csv')
+data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
+data = preprocessing_data(data, lang)
 
-        data = pd.concat([
-            data[data['sentiment'] == -1].sample(n=n, random_state=1),
-            data[data['sentiment'] == 0].sample(n=n, random_state=1),
-            data[data['sentiment'] == 1].sample(n=n, random_state=1)])
-        data.reset_index(drop=True, inplace=True)
-
-    elif menu == 2:
-        data = pd.read_csv('sentiment_analysis.csv')
-        data = preprocessing_data(data, lang)
-
-    elif menu == 3:
-        data = pd.read_csv('Tweets.csv')
-        data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
-        data = preprocessing_data(data, lang)
-
-    elif menu == 4:
-        data = pd.read_csv('IMDB-Dataset.csv')
-        data.rename(columns={'review': 'text'}, inplace=True)
-        data = preprocessing_data(data, lang)
-        data = pd.concat([
-            data[data['sentiment'] == -1].sample(n=n, random_state=1),
-            data[data['sentiment'] == 1].sample(n=n, random_state=1)])
-        data.reset_index(drop=True, inplace=True)
-
-    elif menu == 0:
-        print("\nВЫХОД ИЗ ПРОГРАММЫ")
-        exit(0)
-    else:
-        print("Выберите существующий датасет!")
+# # Загрузка файла с данными
+# while True:
+#     menu = int(input("\nВыберите датасет: "))
+#     n = 1000
+#     lang = "eng"
+#     if menu == 1:
+#         data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t')
+#         data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
+#         lang = "rus"
+#         data = preprocessing_data(data, lang)
+#
+#         data = pd.concat([
+#             data[data['sentiment'] == 0].sample(n=n, random_state=1),
+#             data[data['sentiment'] == 1].sample(n=n, random_state=1),
+#             data[data['sentiment'] == 2].sample(n=n, random_state=1)])
+#         data.reset_index(drop=True, inplace=True)
+#
+#     elif menu == 2:
+#         data = pd.read_csv('sentiment_analysis.csv')
+#         data = preprocessing_data(data, lang)
+#
+#     elif menu == 3:
+#         data = pd.read_csv('Tweets.csv')
+#         data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
+#         data = preprocessing_data(data, lang)
+#
+#     elif menu == 4:
+#         data = pd.read_csv('IMDB-Dataset.csv')
+#         data.rename(columns={'review': 'text'}, inplace=True)
+#         data = preprocessing_data(data, lang)
+#         data = pd.concat([
+#             data[data['sentiment'] == 0].sample(n=n, random_state=1),
+#             data[data['sentiment'] == ].sample(n=n, random_state=1)])
+#         data.reset_index(drop=True, inplace=True)
+#
+#     elif menu == 0:
+#         print("\nВЫХОД ИЗ ПРОГРАММЫ")
+#         # exit(0)
+#         continue
+#     else:
+#         print("Выберите существующий датасет!")
 
 
 dictionary = []
@@ -255,13 +266,66 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
-print("Обучение моделей с использованием Bag-of-words")
-model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
-model_logistic_regression(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
-model_gnb(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
+# print("Обучение моделей с использованием Bag-of-words")
+# model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
+# model_logistic_regression(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
+# model_gnb(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
+#
+#
+# print("Обучение моделей с использованием Word2Vec")
+# model_svm(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
+# model_logistic_regression(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
+# model_gnb(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
 
 
-print("Обучение моделей с использованием Word2Vec")
-model_svm(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
-model_logistic_regression(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
-model_gnb(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
+train_set_w2v = np.array(train_set_w2v)
+test_set_w2v = np.array(test_set_w2v)
+
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(train_set_w2v)
+X_test = scaler.transform(test_set_w2v)
+X_train_tensor = torch.FloatTensor(train_set_w2v)
+Y_train_tensor = torch.LongTensor(train_labels_w2v.values)
+X_test_tensor = torch.FloatTensor(test_set_w2v)
+Y_test_tensor = torch.LongTensor(test_labels_w2v.values)
+
+
+class SimpleNN(nn.Module):
+    def __init__(self):
+        super(SimpleNN, self).__init__()
+        self.fc1 = nn.Linear(X_train.shape[1], 200)
+        self.fc2 = nn.Linear(200, 3)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+        return x
+
+
+model = SimpleNN()
+
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+for epoch in range(100):
+    model.train()
+    optimizer.zero_grad()  # Обнуляем градиенты
+
+    outputs = model(X_train_tensor)  # Прямой проход
+    loss = criterion(outputs, Y_train_tensor)  # Вычисление потерь
+    loss.backward()  # Обратное распространение ошибок
+    optimizer.step()  # Обновление весов
+
+    if (epoch + 1) % 10 == 0:
+        print(f'Epoch [{epoch + 1}/100], Loss: {loss.item():.4f}')
+
+model.eval()
+with torch.no_grad():
+    test_outputs = model(X_test_tensor)
+    _, predicted = torch.max(test_outputs.data, 1)
+
+accuracy = (predicted == Y_test_tensor).sum().item() / Y_test_tensor.size(0)
+print(f'Accuracy: {accuracy:.4f}')

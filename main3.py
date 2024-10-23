@@ -13,8 +13,8 @@ import pandas as pd
 import numpy as np
 
 
-# nlp = spacy.load("ru_core_news_sm")
-nlp = spacy.load("en_core_web_sm")
+nlp_rus = spacy.load("ru_core_news_sm")
+nlp_eng = spacy.load("en_core_web_sm")
 
 
 # Токенизация текста
@@ -25,31 +25,34 @@ def tokenize(text):
 
 
 # Чистка текста
-def clean_text(text):
+def clean_text(text, lang):
     text = text.replace("\\n", " ")
     text = re.sub(r'\d+', '', text)
     text = re.sub(r'[^\w\s]', '', text)
-    # stop_words = set(stopwords.words('russian'))
     stop_words = set(stopwords.words('english'))
+    if lang == "rus":
+        stop_words = set(stopwords.words('russian'))
     filtered_words = [word for word in text.split() if word not in stop_words]
     return " ".join(filtered_words)
 
 
 # Лемматизация текста
-def lemmatize_text(cleaned_text):
-    doc = nlp(cleaned_text)
+def lemmatize_text(cleaned_text, lang):
+    doc = nlp_eng(cleaned_text)
+    if lang == 'rus':
+        doc = nlp_rus(cleaned_text)
     return " ".join([token.lemma_ for token in doc])
 
 
 # Предварительная обработка текста и заполнение словаря
-def preprocess_text(text, dictionary):
+def preprocess_text(text, dct):
     tokens = tokenize(text)
     tokenize_text = ', '.join(tokens)
     cleaned_text = clean_text(tokenize_text)
     lemmatized_text = lemmatize_text(cleaned_text)
     for token in lemmatized_text.split():
-        if token not in dictionary:
-            dictionary.append(token)
+        if token not in dct:
+            dct.append(token)
 
     return lemmatized_text
 
@@ -75,40 +78,71 @@ def model_Word2Vec(data, vectors_w2v):
         vectors_w2v.append(words_vecs.mean(axis=0))
 
 
-# # Загрузка TSKV файла с данными
-# data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
-# data = pd.read_csv('sentiment_analysis.csv')
-data = pd.read_csv('Tweets.csv')
-# print(data[:10])
-
-# Установка имен столбцов
-# data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
-
-# Фильтр только столбцов с текстом отзыва и оценкой
-# data = data[['text', 'rating']]
-# data = data[['text', 'sentiment']]
-data = data[['text', 'airline_sentiment']]
-
-# Срез лишнего
-# data['text'] = data['text'].str.slice(5)
-# data['rating'] = data['rating'].str.slice(7, -1)
-
-# data = data[data['rating'].isin(['1', '2', '3', '4', '5'])]
-# data = data[data['rating'].isin(['1', '3', '5'])]
-# data['rating'] = data['rating'].astype(int)
-data.reset_index(drop=True, inplace=True)
+# Предобработка датасета
+def prepocessing_data(data, lang):
+    data['preprocessed_text'] = None
+    data['vector'] = None
+    if lang == "rus":
+        data = data[['text', 'rating']]  # Фильтр только столбцов с текстом отзыва и оценкой
+        data['text'] = data['text'].str.slice(5)  # Срез лишнего
+        data['rating'] = data['rating'].str.slice(7, -1)
+        data = data[data['rating'].isin(['1', '3', '5'])]
+        data['sentiment'] = data['rating']
+        data['sentiment'] = data['sentiment'].replace({1: -1, 3: 0, 5: 1})
+    else:
+        data = data[['text', 'sentiment']]
+        data['sentiment'] = data['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
+    data.reset_index(drop=True, inplace=True)
+    counts = data['sentiment'].value_counts()
+    print(counts)
 
 
-# Добавление новых столбцов
-data['preprocessed_text'] = None
-data['vector'] = None
-# data['sentiment'] = data['rating']
-# data['sentiment'] = data['sentiment'].replace({1: -1, 2: 0, 3: 0, 4: 0, 5: 1})
-# data['sentiment'] = data['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
-data['airline_sentiment'] = data['airline_sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
-# counts = data['sentiment'].value_counts()
-counts = data['airline_sentiment'].value_counts()
-print(counts)
+# Консольное меню
+print("МЕНЮ\n\n[1] Отзывы с Яндекс.Карт\n[2] Маленький синтетический датасет на английском (pos, neu, neg)\n"
+      "[3] Твиты про авиакомпанию (pos, neu, neg)\n[4] Отзывы на фильмы (только pos и neg)\n[0] ВЫХОД")
+
+
+# Загрузка файла с данными
+while True:
+    menu = int(input("\nВыберите датасет: "))
+    n = 1000
+    if menu == 1:
+        data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
+        lang = "rus"
+        data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']  # Установка имен столбцов
+        prepocessing_data(data, lang)
+
+        data = pd.concat([
+            data[data['sentiment'] == -1].sample(n=n, random_state=1),
+            data[data['sentiment'] == 0].sample(n=n, random_state=1),
+            data[data['sentiment'] == 1].sample(n=n, random_state=1)])
+        data.reset_index(drop=True, inplace=True)
+
+    elif menu == 2:
+        data = pd.read_csv('sentiment_analysis.csv')
+        lang = "eng"
+        prepocessing_data(data, lang)
+
+    elif menu == 3:
+        data = pd.read_csv('Tweets.csv')
+        lang = "eng"
+        prepocessing_data(data, lang)
+
+    elif menu == 4:
+        data = pd.read_csv('IMDB-Dataset.csv')
+        lang = "eng"
+        prepocessing_data(data, lang)
+
+        data = pd.concat([
+            data[data['sentiment'] == -1].sample(n=n, random_state=1),
+            data[data['sentiment'] == 1].sample(n=n, random_state=1)])
+        data.reset_index(drop=True, inplace=True)
+
+    elif menu == 0:
+        print("\nВЫХОД ИЗ ПРОГРАММЫ")
+        break
+    else:
+        print("Выберите существующий датасет!")
 
 
 # Снимаем ограничения вывода таблицы
@@ -116,20 +150,6 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', None)
-
-# Смотрим на данные, выводим 10 первых строк
-# print(data[:10])
-# data = data[:1000]
-# n = 1000
-# data = pd.concat([
-#     data[data['sentiment'] == -1].sample(n=n, random_state=1),
-#     data[data['sentiment'] == 0].sample(n=n, random_state=1),
-#     data[data['sentiment'] == 1].sample(n=n, random_state=1)])
-
-# counts = data['sentiment'].value_counts()
-# print(counts)
-# print(data)
-data.reset_index(drop=True, inplace=True)
 
 
 dictionary = []
@@ -171,7 +191,7 @@ model_Word2Vec(data, vectors_w2v)
 # Разделяем данные на обучающую и тестовую выборки для машка слов
 (train_set_bow, test_set_bow, train_labels_bow, test_labels_bow) = train_test_split(
     vectors_bow,
-    data['airline_sentiment'],
+    data['sentiment'],
     test_size=0.3,
     random_state=42
 )
@@ -180,7 +200,7 @@ model_Word2Vec(data, vectors_w2v)
 # Разделяем данные на обучающую и тестовую выборки для Word2Vec
 (train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v) = train_test_split(
     vectors_w2v,
-    data['airline_sentiment'],
+    data['sentiment'],
     test_size=0.3,
     random_state=42
 )

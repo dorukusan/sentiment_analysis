@@ -45,11 +45,11 @@ def lemmatize_text(cleaned_text, lang):
 
 
 # Предварительная обработка текста и заполнение словаря
-def preprocess_text(text, dct):
+def preprocess_text(text, dct, lang):
     tokens = tokenize(text)
     tokenize_text = ', '.join(tokens)
-    cleaned_text = clean_text(tokenize_text)
-    lemmatized_text = lemmatize_text(cleaned_text)
+    cleaned_text = clean_text(tokenize_text, lang)
+    lemmatized_text = lemmatize_text(cleaned_text, lang)
     for token in lemmatized_text.split():
         if token not in dct:
             dct.append(token)
@@ -79,9 +79,8 @@ def model_Word2Vec(data, vectors_w2v):
 
 
 # Предобработка датасета
-def prepocessing_data(dataset, language):
-    dataset['preprocessed_text'] = None
-    dataset['vector'] = None
+def preprocessing_data(data, language):
+    dataset = data.copy()
     if language == "rus":
         dataset = dataset[['text', 'rating']]  # Фильтр только столбцов с текстом отзыва и оценкой
         dataset['text'] = dataset['text'].str.slice(5)  # Срез лишнего
@@ -92,10 +91,20 @@ def prepocessing_data(dataset, language):
     else:
         dataset = dataset[['text', 'sentiment']]
         dataset['sentiment'] = dataset['sentiment'].replace({'negative': -1, 'neutral': 0, 'positive': 1})
+    dataset['preprocessed_text'] = None
+    dataset['vector'] = None
     dataset.reset_index(drop=True, inplace=True)
     counts = dataset['sentiment'].value_counts()
     print(counts)
+
+    # Снимаем ограничения вывода таблицы
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_colwidth', None)
+    pd.set_option('display.width', None)
+
     print(dataset[:10])
+
     return dataset
 
 
@@ -110,10 +119,10 @@ while True:
     n = 1000
     lang = "eng"
     if menu == 1:
-        data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t', header=None)
+        data = pd.read_csv('geo-reviews-dataset-2023.tskv', sep='\t')
+        data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']
         lang = "rus"
-        data.columns = ['address', 'name_ru', 'rating', 'rubrics', 'text']  # Установка имен столбцов
-        data = prepocessing_data(data, lang)
+        data = preprocessing_data(data, lang)
 
         data = pd.concat([
             data[data['sentiment'] == -1].sample(n=n, random_state=1),
@@ -123,16 +132,17 @@ while True:
 
     elif menu == 2:
         data = pd.read_csv('sentiment_analysis.csv')
-        prepocessing_data(data, lang)
+        data = preprocessing_data(data, lang)
 
     elif menu == 3:
         data = pd.read_csv('Tweets.csv')
-        prepocessing_data(data, lang)
+        data.rename(columns={'airline_sentiment': 'sentiment'}, inplace=True)
+        data = preprocessing_data(data, lang)
 
     elif menu == 4:
         data = pd.read_csv('IMDB-Dataset.csv')
-        prepocessing_data(data, lang)
-
+        data.rename(columns={'review': 'text'}, inplace=True)
+        data = preprocessing_data(data, lang)
         data = pd.concat([
             data[data['sentiment'] == -1].sample(n=n, random_state=1),
             data[data['sentiment'] == 1].sample(n=n, random_state=1)])
@@ -140,16 +150,9 @@ while True:
 
     elif menu == 0:
         print("\nВЫХОД ИЗ ПРОГРАММЫ")
-        break
+        exit(0)
     else:
         print("Выберите существующий датасет!")
-
-
-# Снимаем ограничения вывода таблицы
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_colwidth', None)
-pd.set_option('display.width', None)
 
 
 dictionary = []
@@ -161,7 +164,7 @@ print("Прогресс обработки текста")
 
 # Предварительная обработка текста
 for i in range(len(data)):
-    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dictionary)
+    data.loc[i, 'preprocessed_text'] = preprocess_text(data.loc[i, 'text'], dictionary, lang)
     pb.print_progress_bar(i)
 
 
@@ -206,6 +209,7 @@ model_Word2Vec(data, vectors_w2v)
 )
 
 
+# Метод опорных векторов
 def model_svm(train_x, test_x, train_y, test_y):
     # Обучение модели SVM
     svm = SVC(kernel='linear')
@@ -220,6 +224,7 @@ def model_svm(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_svm))
 
 
+# Логистическая регрессия
 def model_logistic_regression(train_x, test_x, train_y, test_y):
     # Обучение модели Logistic Regression
     logreg = LogisticRegression()
@@ -234,6 +239,7 @@ def model_logistic_regression(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_logreg))
 
 
+# Гауссовский наивный байесовский классификатор
 def model_gnb(train_x, test_x, train_y, test_y):
     # Обучение модели GaussianNB
     gnb = GaussianNB()
@@ -248,10 +254,13 @@ def model_gnb(train_x, test_x, train_y, test_y):
     print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
+print("Обучение моделей с использованием Bag-of-words")
 model_svm(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
 model_logistic_regression(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
 model_gnb(train_set_bow, test_set_bow, train_labels_bow, test_labels_bow)
 
+
+print("Обучение моделей с использованием Word2Vec")
 model_svm(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
 model_logistic_regression(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)
 model_gnb(train_set_w2v, test_set_w2v, train_labels_w2v, test_labels_w2v)

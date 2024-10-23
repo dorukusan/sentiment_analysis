@@ -27,6 +27,7 @@ def tokenize(text):
 # Чистка текста
 def clean_text(text, lang):
     text = text.replace("\\n", " ")
+    text = text.replace("< br/>", " ")
     text = re.sub(r'\d+', '', text)
     text = re.sub(r'[^\w\s]', '', text)
     stop_words = set(stopwords.words('english'))

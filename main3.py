@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from console_progressbar import ProgressBar
 from sklearn.svm import SVC
 from sklearn.cluster import KMeans
+from sklearn.naive_bayes import GaussianNB
 from sklearn import metrics
 import re
 import spacy
@@ -93,7 +94,7 @@ pd.set_option('display.width', None)
 # Смотрим на данные, выводим 10 первых строк
 # print(data[:10])
 # data = data[:1000]
-n = 500
+n = 1000
 data = pd.concat([
     data[data['sentiment'] == -1].sample(n=n, random_state=1),
     data[data['sentiment'] == 0].sample(n=n, random_state=1),
@@ -131,7 +132,9 @@ for i in range(len(data)):
     data.loc[i, 'vector'] = str(bag_of_words(data.loc[i, 'preprocessed_text'], dictionary))
     pb.print_progress_bar(i)
 
-# print(data[:10])
+
+# print(*dictionary)
+# print(f"Количество слов в словаре: {len(dictionary)}")
 
 
 # Разделяем данные на обучающую и тестовую выборки
@@ -143,49 +146,59 @@ for i in range(len(data)):
 )
 
 
-# print(test_set)
-# print(test_labels)
+def model_svm(train_x, test_x, train_y, test_y):
+    # Обучение модели SVM
+    svm = SVC(kernel='linear')
+    svm.fit(train_x, train_y)
+
+    # Предсказание на тестовых данных (SVM)
+    model_predictions_svm = svm.predict(test_x)
+
+    # Оценка точности для SVM
+    accuracy_svm = metrics.accuracy_score(test_y, model_predictions_svm)
+    print("\nОценка точности для SVM:", accuracy_svm)
+    print(metrics.classification_report(test_y, model_predictions_svm))
 
 
-# # Обучение модели SVM
-# svm = SVC(kernel='linear')
-# svm.fit(train_set, train_labels)
-#
-# # Предсказание на тестовых данных (SVM)
-# model_predictions_svm = svm.predict(test_set)
+def model_kmeans(train_x, test_x, test_y):
+    # Обучение модели KMeans с использованием инициализации k-means++
+    kmeans = KMeans(n_clusters=3, init='k-means++', max_iter=1000, n_init=10, random_state=42)
+    kmeans.fit(train_x)
+
+    # Предсказание на тестовых данных (KMeans)
+    model_predictions_kmeans = kmeans.predict(test_x)
+
+    # Создаем DataFrame для удобства
+    results = pd.DataFrame({'Cluster': model_predictions_kmeans, 'TrueLabel': test_y})
+
+    # Находим наиболее частую метку для каждого кластера
+    cluster_labels = results.groupby('Cluster')['TrueLabel'].agg(lambda x: x.mode()[0]).to_dict()
+    print("\nСоответствие кластеров и истинных меток:")
+    print(cluster_labels)
+
+    # Сопоставление кластеров с истинными метками
+    mapped_predictions_kmeans = np.array([cluster_labels[cluster] for cluster in model_predictions_kmeans])
+
+    # Оценка точности для KMeans
+    accuracy_kmeans = metrics.accuracy_score(test_y, mapped_predictions_kmeans)
+    print("\nОценка точности для KMeans:", accuracy_kmeans)
+    print(metrics.classification_report(test_y, mapped_predictions_kmeans))
 
 
-# Обучение модели KMeans с использованием инициализации k-means++
-kmeans = KMeans(n_clusters=3, init='k-means++', max_iter=1000, n_init=10, random_state=42)
-kmeans.fit(train_set)
+def model_gnb(train_x, test_x, train_y, test_y):
+    # Обучение модели GaussianNB
+    gnb = GaussianNB()
+    gnb.fit(train_x, train_y)
 
-# Предсказание на тестовых данных (KMeans)
-model_predictions_kmeans = kmeans.predict(test_set)
+    # Предсказание на тестовых данных (GaussianNB)
+    model_predictions_gnb = gnb.predict(test_x)
 
-
-# Создаем DataFrame для удобства
-results = pd.DataFrame({'Cluster': model_predictions_kmeans, 'TrueLabel': test_labels})
-
-# Находим наиболее частую метку для каждого кластера
-cluster_labels = results.groupby('Cluster')['TrueLabel'].agg(lambda x: x.mode()[0]).to_dict()
-
-print("\nСоответствие кластеров и истинных меток:")
-print(cluster_labels)
+    # Оценка точности для GaussianNB
+    accuracy_kmeans = metrics.accuracy_score(test_y, model_predictions_gnb)
+    print("\nОценка точности для GaussianNB:", accuracy_kmeans)
+    print(metrics.classification_report(test_y, model_predictions_gnb))
 
 
-# Сопоставление кластеров с истинными метками
-mapped_predictions_kmeans = np.array([cluster_labels[cluster] for cluster in model_predictions_kmeans])
-
-# Оценка точности для KMeans и SVM
-accuracy_kmeans = metrics.accuracy_score(test_labels, mapped_predictions_kmeans)
-# accuracy_svm = metrics.accuracy_score(test_labels, model_predictions_svm)
-
-print("\nОценка точности для KMeans:", accuracy_kmeans)
-print(metrics.classification_report(test_labels, mapped_predictions_kmeans))
-#
-# print("\nОценка точности для SVM:", accuracy_svm)
-# print(metrics.classification_report(test_labels, model_predictions_svm))
-
-
-# print(*dictionary)
-# print(f"Количество слов в словаре: {len(dictionary)}")
+# model_svm(train_set, test_set, train_labels, test_labels)
+# model_kmeans(train_set, test_set, test_labels)
+model_gnb(train_set, test_set, train_labels, test_labels)
